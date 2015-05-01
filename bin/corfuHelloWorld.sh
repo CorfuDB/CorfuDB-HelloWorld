@@ -10,15 +10,7 @@ else
     . "$CORFUDBBINDIR"/corfuDBEnv.sh
 fi
 
-if [ "x$1" == "x" ]; then
-    echo "Usage: $0 <test-name> <args>" >&2
-    exit 1
-fi
-
 CORFUDB_DAEMON_OUT="/var/log/corfudb.${1}.log"
-CORFUDBMAIN="org.corfudb.tests.benchtests.MicroBenchmark"
+CORFUDBMAIN="org.corfudb.example.CorfuHelloWorld"
 
-
-#echo " -cp "$CLASSPATH" $JVMFLAGS "$CORFUDBMAIN" -A ${1} ${*:2}"
-"$JAVA" -cp "$CLASSPATH" $JVMFLAGS "$CORFUDBMAIN" -A ${1} ${*:2} 2>&1
-
+"$JAVA" -cp "$CLASSPATH" "-Dorg.slf4j.simpleLogger.defaultLogLevel=${CORFUDB_LOG4J_PROP}" $JVMFLAGS -Xmx16g "$CORFUDBMAIN" ${*:1} 2>&1 < /dev/null
