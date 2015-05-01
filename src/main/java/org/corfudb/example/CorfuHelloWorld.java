@@ -1,6 +1,11 @@
 package org.corfudb.example;
 
 import org.corfudb.runtime.CorfuDBRuntime;
+import org.corfudb.runtime.entries.IStreamEntry;
+import org.corfudb.runtime.smr.Stream;
+import org.corfudb.runtime.stream.ILog;
+import org.corfudb.runtime.stream.IStream;
+import org.corfudb.runtime.stream.ITimestamp;
 import org.corfudb.runtime.view.IConfigurationMaster;
 import org.corfudb.runtime.view.IStreamingSequencer;
 import org.corfudb.runtime.view.IWriteOnceAddressSpace;
@@ -20,7 +25,7 @@ public class CorfuHelloWorld {
                     +"  corfudb_helloworld --version\n\n"
                     +"Options:\n"
                     +"  -m <master>, --master <master>          The address of the configuration master. [default: memory]\n"
-                    +"  -a <type> --address-space <type>        The type of address space to use. [default: ObjectCachedWriteOnceAddressSpace]\n"
+                    +"  -a <type> --address-space <type>        The type of address space to use. [default: WriteOnceAddressSpace]\n"
                     +"  --h --help                              show this screen\n"
                     +"  --version                               show version.\n";
 
@@ -73,11 +78,52 @@ public class CorfuHelloWorld {
         Object o = addressSpace.readObject(token);
         System.out.println("Read back the string " + o);
 
-        /* Normally, we'll want something a little nicer to use than an address space. The shared log
+        /* Normally, we'll want something a little nicer to use than an address space. The log
          * class does that, giving us a read, append and trim interface as described in the original
          * CORFU paper.
          */
         configMaster.resetAll();
+        ILog log = cdbFactory.getLog(sequencer, addressSpace);
+        ITimestamp log_timestamp = log.append("hello world from a log");
+        String text = (String) log.read(log_timestamp);
+        System.out.println("Read back the string " + text);
+
+        /* In addition to shared logs, we also get streams, which allow us to virtualize a CorfuDB
+         * instance, providing multiple log-like interfaces at a time. Unlike logs, however,
+         * streams are read forward from the beginning using a readNext() interface.
+         *
+         * We use UUIDs to uniquely identify streams. You can use the UUID.randomUUID() function
+         * to generate globally unique stream identifiers.
+         */
+        configMaster.resetAll();
+        IStream stream1 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
+        IStream stream2 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
+
+        stream1.append("hello world from stream 1");
+        stream2.append("hello world from stream 2");
+        stream1.append("hello world again from stream 1");
+
+        System.out.println("Read back the string " + stream1.readNextObject());
+        System.out.println("Read back the string " + stream1.readNextObject());
+        System.out.println("Read back the string " + stream2.readNextObject());
+
+        /* Stream entries have timestamps which we can use to compare ordering. Depending on the stream
+         * implementation, timestamps may be comparable across streams (you should expect that they will
+         * typically be not comparable).
+         */
+        configMaster.resetAll();
+        IStream stream3 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
+
+        stream3.append("hello world from stream 3");
+        stream3.append("hello world from stream 4");
+
+        IStreamEntry entry1 = stream3.readNextEntry();
+        IStreamEntry entry2 = stream3.readNextEntry();
+
+        ITimestamp ts1 = entry1.getTimestamp();
+        ITimestamp ts2 = entry2.getTimestamp();
+        System.out.println("Comparison of ts1 to ts2 returns " + ts1.compareTo(ts2));
+
 
     }
 }
