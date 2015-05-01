@@ -2,6 +2,8 @@ package org.corfudb.example;
 
 import org.corfudb.runtime.CorfuDBRuntime;
 import org.corfudb.runtime.entries.IStreamEntry;
+import org.corfudb.runtime.smr.ISMREngineCommand;
+import org.corfudb.runtime.smr.SimpleSMREngine;
 import org.corfudb.runtime.smr.Stream;
 import org.corfudb.runtime.stream.ILog;
 import org.corfudb.runtime.stream.IStream;
@@ -14,6 +16,8 @@ import org.docopt.Docopt;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class CorfuHelloWorld {
 
@@ -124,7 +128,61 @@ public class CorfuHelloWorld {
         ITimestamp ts2 = entry2.getTimestamp();
         System.out.println("Comparison of ts1 to ts2 returns " + ts1.compareTo(ts2));
 
+        /* Now that we have used a stream, we can now build basic state machines. Fortunately, CorfuDB
+         * provides several classes to make this easier. Let's start by using the SimpleSMREngine
+         * to create a distributed counter.
+         *
+         * There is a one-to-one correspondence between SMR engines and streams. That is, each stream
+         * contains exactly one SMR engine, and each SMR engine is contained in exactly one stream.
+         *
+         * SimpleSMREngine takes the object type that it is supposed to wrap around as a type parameter.
+         * This type must provide a default, parameterless constructor by default.
+         */
 
+        configMaster.resetAll();
+        IStream stream4 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
+        SimpleSMREngine<AtomicInteger> smr = new SimpleSMREngine<AtomicInteger>(stream4, AtomicInteger.class);
+
+        /* We can provide commands to the SMR engine as lambdas. This lambda is a BiConsumer, which takes the
+         * object the command is to act on (in this case, an AtomicInteger), and an options object.
+         *
+         * Don't forget to cast the lambda into a ISMREngineCommand<T>, otherwise the lambda won't be serializable
+         * and your object won't work!
+         *
+         * We define some basic operations for this counter, increment and decrement.
+         */
+
+        ISMREngineCommand<AtomicInteger> increment = (ISMREngineCommand<AtomicInteger>) (a,opt) -> a.getAndIncrement();
+
+        /* We can also define commands that return a value. Since this value will only be resolved on playback,
+         * we use a completable future, which can be accessed by calling getReturnResult() on the options object.
+         */
+        ISMREngineCommand<AtomicInteger> getAndIncrement =
+                (ISMREngineCommand<AtomicInteger>) (a,opt) -> {opt.getReturnResult().complete(a.getAndIncrement());};
+
+        /* Now we can propose commands to the object, which will be played back by all clients playing back
+         * this object.
+         */
+        ITimestamp ts3 = smr.propose(increment, null);
+
+        /* To playback a proposal, we call sync to bring the object up to date.
+         * We can retrieve the object from the smr engine to get its value.
+         */
+        smr.sync(ts3);
+        System.out.println("Object is now at " +  smr.getObject());
+
+        /* To use an accessor+mutator, we first create a completable future which will contain the result.
+         */
+        CompletableFuture<Object> previous = new CompletableFuture<Object>();
+        ITimestamp ts4 = smr.propose(getAndIncrement, previous);
+
+        /* We can access the result only when the future has completed. See the completable future API for details,
+         * but for synchronous inspection, we can join() on the future, which will block the thread until the
+         * SMR has synced.
+         */
+        smr.sync(ts4);
+        System.out.println("Object was at " + previous.join());
+        System.out.println("And object is now at " + smr.getObject());
     }
 }
 
