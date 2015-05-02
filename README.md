@@ -34,3 +34,31 @@ git clone https://github.com/CorfuDB/CorfuDB-HelloWorld.git
 cd CorfuDB-HelloWorld
 mvn install
 ```
+
+# Running the project
+
+We provide a simple script in ```bin/corfuHelloWorld.sh``` which will deal with the classpath automatically.
+The project uses the docopt command line parser for, simple readable command line options.
+
+To get help on options, simply type from the project directory:
+```
+bin/corfuHelloWorld.sh --help
+```
+
+To run the project, type:
+```
+bin/corfuHelloWorld.sh
+```
+
+This will run the project with an in-memory implementation of CorfuDB.
+If you want to run the project against a real CorfuDB deployment, you should run with the -m parameter
+pointing to a master address.
+For example, to run the project against a default CorfuDB deployment, you should run something like:
+```
+# go to CorfuDB project directory
+cd ../CorfuDB
+sudo bin/corfuDBMultiple.sh start
+# now run our project
+cd ../CorfuDB-HelloWorld
+bin/corfuHelloWorld.sh -m http://localhost:8002/corfu
+

@@ -1,6 +1,7 @@
 package org.corfudb.example;
 
 import org.corfudb.runtime.CorfuDBRuntime;
+import org.corfudb.runtime.collections.CDBSimpleMap;
 import org.corfudb.runtime.entries.IStreamEntry;
 import org.corfudb.runtime.smr.ISMREngineCommand;
 import org.corfudb.runtime.smr.SimpleSMREngine;
@@ -8,6 +9,7 @@ import org.corfudb.runtime.smr.Stream;
 import org.corfudb.runtime.stream.ILog;
 import org.corfudb.runtime.stream.IStream;
 import org.corfudb.runtime.stream.ITimestamp;
+import org.corfudb.runtime.stream.SimpleStream;
 import org.corfudb.runtime.view.IConfigurationMaster;
 import org.corfudb.runtime.view.IStreamingSequencer;
 import org.corfudb.runtime.view.IWriteOnceAddressSpace;
@@ -183,6 +185,27 @@ public class CorfuHelloWorld {
         smr.sync(ts4);
         System.out.println("Object was at " + previous.join());
         System.out.println("And object is now at " + smr.getObject());
+
+        /* CorfuDB provides a collection of objects to work with so you don't have to implement your own.
+         * For example, here is a simple map which implements the java.util.Map interface.
+         */
+        configMaster.resetAll();
+        UUID mapId = UUID.randomUUID();
+        IStream stream5 = new SimpleStream(mapId, sequencer,addressSpace);
+        CDBSimpleMap<Integer, Integer> map = new CDBSimpleMap<Integer, Integer>(stream5);
+        map.put(10, 100);
+        System.out.println("Map key 10 contains value " + map.get(10));
+
+        /* Of course, any client in the system can now access this map.
+         * We can create another "map" based on the same stream. Keep in mind
+         * streams and objects have a one-to-one mapping, so you'll need to create a new
+         * stream (with the same ID) to use this object:
+         */
+        IStream stream6 = new SimpleStream(mapId, sequencer,addressSpace);
+        CDBSimpleMap<Integer, Integer> map2 = new CDBSimpleMap<Integer, Integer>(stream6);
+        System.out.println("Map2 key 10 contains value " + map2.get(10));
+
+        System.exit(0);
     }
 }
 
