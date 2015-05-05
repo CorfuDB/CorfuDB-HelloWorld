@@ -47,7 +47,7 @@ bin/corfuHelloWorld.sh --help
 
 To run the project, type:
 ```
-bin/corfuHelloWorld.sh
+bin/corfuHelloWorld.sh run
 ```
 
 This will run the project with an in-memory implementation of CorfuDB.
@@ -60,5 +60,5 @@ cd ../CorfuDB
 sudo bin/corfuDBMultiple.sh start
 # now run our project
 cd ../CorfuDB-HelloWorld
-bin/corfuHelloWorld.sh -m http://localhost:8002/corfu
+bin/corfuHelloWorld.sh run -m http://localhost:8002/corfu
 
