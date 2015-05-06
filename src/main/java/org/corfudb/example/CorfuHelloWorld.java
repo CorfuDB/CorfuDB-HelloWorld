@@ -191,7 +191,7 @@ public class CorfuHelloWorld {
          */
         configMaster.resetAll();
         UUID mapId = UUID.randomUUID();
-        IStream stream5 = new SimpleStream(mapId, sequencer,addressSpace);
+        IStream stream5 = cdbFactory.getStream(mapId, sequencer,addressSpace);
         CDBSimpleMap<Integer, Integer> map = new CDBSimpleMap<Integer, Integer>(stream5);
         map.put(10, 100);
         System.out.println("Map key 10 contains value " + map.get(10));
@@ -201,7 +201,7 @@ public class CorfuHelloWorld {
          * streams and objects have a one-to-one mapping, so you'll need to create a new
          * stream (with the same ID) to use this object:
          */
-        IStream stream6 = new SimpleStream(mapId, sequencer,addressSpace);
+        IStream stream6 = cdbFactory.getStream(mapId, sequencer,addressSpace);
         CDBSimpleMap<Integer, Integer> map2 = new CDBSimpleMap<Integer, Integer>(stream6);
         System.out.println("Map2 key 10 contains value " + map2.get(10));
 
