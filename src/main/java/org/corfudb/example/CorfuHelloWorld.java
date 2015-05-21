@@ -81,8 +81,7 @@ public class CorfuHelloWorld {
          * we would get an overwrite exception. If we attempted to read an address in that
          * address space before it was written, we would get an unwritten exception.
          */
-        Object o = addressSpace.readObject(token);
-        System.out.println("Read back the string " + o);
+        report("Read back the string ", addressSpace.readObject(token), "hello world");
 
         /* Normally, we'll want something a little nicer to use than an address space. The log
          * class does that, giving us a read, append and trim interface as described in the original
@@ -91,8 +90,7 @@ public class CorfuHelloWorld {
         configMaster.resetAll();
         ILog log = cdbFactory.getLog(sequencer, addressSpace);
         ITimestamp log_timestamp = log.append("hello world from a log");
-        String text = (String) log.read(log_timestamp);
-        System.out.println("Read back the string " + text);
+        report("Read back the string ", log.read(log_timestamp), "hello world from a log");
 
         /* In addition to shared logs, we also get streams, which allow us to virtualize a CorfuDB
          * instance, providing multiple log-like interfaces at a time. Unlike logs, however,
@@ -108,10 +106,9 @@ public class CorfuHelloWorld {
         stream1.append("hello world from stream 1");
         stream2.append("hello world from stream 2");
         stream1.append("hello world again from stream 1");
-
-        System.out.println("Read back the string " + stream1.readNextObject());
-        System.out.println("Read back the string " + stream1.readNextObject());
-        System.out.println("Read back the string " + stream2.readNextObject());
+        report("Read back the string ", stream1.readNextObject(), "hello world from stream 1");
+        report("Read back the string ", stream1.readNextObject(), "hello world again from stream 1");
+        report("Read back the string ", stream2.readNextObject(), "hello world from stream 2");
 
         /* Stream entries have timestamps which we can use to compare ordering. Depending on the stream
          * implementation, timestamps may be comparable across streams (you should expect that they will
@@ -128,7 +125,7 @@ public class CorfuHelloWorld {
 
         ITimestamp ts1 = entry1.getTimestamp();
         ITimestamp ts2 = entry2.getTimestamp();
-        System.out.println("Comparison of ts1 to ts2 returns " + ts1.compareTo(ts2));
+        report("Comparison of ts1 to ts2 returns ", ts1.compareTo(ts2), -1);
 
         /* Now that we have used a stream, we can now build basic state machines. Fortunately, CorfuDB
          * provides several classes to make this easier. Let's start by using the SimpleSMREngine
@@ -171,7 +168,7 @@ public class CorfuHelloWorld {
          * We can retrieve the object from the smr engine to get its value.
          */
         smr.sync(ts3);
-        System.out.println("Object is now at " +  smr.getObject());
+        report("Object is now at ", smr.getObject(), 1);
 
         /* To use an accessor+mutator, we first create a completable future which will contain the result.
          */
@@ -183,8 +180,10 @@ public class CorfuHelloWorld {
          * SMR has synced.
          */
         smr.sync(ts4);
-        System.out.println("Object was at " + previous.join());
-        System.out.println("And object is now at " + smr.getObject());
+        Object prev = previous.join();
+        Object now = smr.getObject();
+        report("Object was at ", prev, 1);
+        report("And object is now at ", now, 2);
 
         /* CorfuDB provides a collection of objects to work with so you don't have to implement your own.
          * For example, here is a simple map which implements the java.util.Map interface.
@@ -194,7 +193,7 @@ public class CorfuHelloWorld {
         IStream stream5 = cdbFactory.getStream(mapId, sequencer,addressSpace);
         CDBSimpleMap<Integer, Integer> map = new CDBSimpleMap<Integer, Integer>(stream5);
         map.put(10, 100);
-        System.out.println("Map key 10 contains value " + map.get(10));
+        report("Map key 10 contains value ", map.get(10), 100);
 
         /* Of course, any client in the system can now access this map.
          * We can create another "map" based on the same stream. Keep in mind
@@ -203,9 +202,46 @@ public class CorfuHelloWorld {
          */
         IStream stream6 = cdbFactory.getStream(mapId, sequencer,addressSpace);
         CDBSimpleMap<Integer, Integer> map2 = new CDBSimpleMap<Integer, Integer>(stream6);
-        System.out.println("Map2 key 10 contains value " + map2.get(10));
+        report("Map2 key 10 contains value ", map2.get(10), 100);
 
-        System.exit(0);
+        System.exit(finalResult());
     }
+
+    /*  report the result of scenario that exercises a CorfuDB function/feature.
+        Accepts a string, the actual result, and the expected value, which is
+        assumed to implement Comparable (which certainly the case for the
+        simple test scenarios in the hello world sample.)
+        Side effects: tracks number of actual tests and failures in inform
+                      subsequent summary.
+     */
+    protected static void report(String message, Object oactual, Comparable expected) {
+        Object actual = (oactual instanceof AtomicInteger) ? ((AtomicInteger)oactual).get() : oactual;
+        boolean success = expected == null ? actual == null : expected.compareTo(actual) == 0;
+        String successstr = success ? " (OK)":" (ERROR)";
+        System.out.println(message + " " + actual + successstr);
+        failCount += success ? 0 : 1;
+        testCount++;
+    }
+
+    /*  Emit summary of run. If there were errors, complain about it,
+        ensure the process return code reflects that fact.
+        Returns: intended process return code (param for exit() syscall);
+     */
+    protected static int finalResult() {
+        if(failCount == 0) {
+            System.out.println("ALL TESTS PASSED.");
+            return 0;
+        }
+        System.out.println("ENCOUNTERED ERRORS: "+failCount+" of "+testCount+" failed.");
+        return -1;
+    }
+
+
+    /*  Track whether the simple functionality exercises illustrated
+     *  in the following codes actually produce the expected results.
+     */
+    protected static int failCount = 0;
+    protected static int testCount = 0;
+
 }
 
