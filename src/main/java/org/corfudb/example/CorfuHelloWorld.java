@@ -5,11 +5,9 @@ import org.corfudb.runtime.collections.CDBSimpleMap;
 import org.corfudb.runtime.entries.IStreamEntry;
 import org.corfudb.runtime.smr.ISMREngineCommand;
 import org.corfudb.runtime.smr.SimpleSMREngine;
-import org.corfudb.runtime.smr.Stream;
 import org.corfudb.runtime.stream.ILog;
 import org.corfudb.runtime.stream.IStream;
 import org.corfudb.runtime.stream.ITimestamp;
-import org.corfudb.runtime.stream.SimpleStream;
 import org.corfudb.runtime.view.IConfigurationMaster;
 import org.corfudb.runtime.view.IStreamingSequencer;
 import org.corfudb.runtime.view.IWriteOnceAddressSpace;
@@ -45,16 +43,19 @@ public class CorfuHelloWorld {
         /* The convenience class CorfuDBFactory allows us to create
          * CorfuDB class instances based on command line configuration parsed by docopt.
          */
+        report("Creating CorfuDBFactory...");
         CorfuDBFactory cdbFactory = new CorfuDBFactory(opts);
 
         /* To interact with a CorfuDB instance, we first need a runtime to interact with.
          * We can get an instance of CorfuDBRuntime by using the factory.
          */
+        report("Creating CorfuDBRuntime...");
         CorfuDBRuntime cdr = cdbFactory.getRuntime();
 
         /* Each CorfuDB instance consists of a configuration master, write once address
          * space and sequencer. We can use the factory to get an instance.
          */
+        report("Creating addressSpace, sequencer, and configMaster...");
         IWriteOnceAddressSpace addressSpace = cdbFactory.getWriteOnceAddressSpace(cdr);
         IStreamingSequencer sequencer = cdbFactory.getStreamingSequencer(cdr);
         IConfigurationMaster configMaster = cdbFactory.getConfigurationMaster(cdr);
@@ -67,12 +68,14 @@ public class CorfuHelloWorld {
          * of the system. You should not use it in production, but it is very useful for
          * testing purposes.
          */
+        report("resetting configuration...");
         configMaster.resetAll();
 
         /* The sequencer provides incrementing tokens, while the write once address space
          * allows us to write to addresses exactly once. We can read/write randomly
          * to the address space.
          */
+        report("starting first test...");
         UUID streamId = UUID.randomUUID();
         long token = sequencer.getNext(streamId);
         addressSpace.write(token, "hello world");
@@ -206,6 +209,11 @@ public class CorfuHelloWorld {
 
         System.exit(finalResult());
     }
+
+    protected static void report(String message) {
+        System.out.println(message);
+    }
+
 
     /*  report the result of scenario that exercises a CorfuDB function/feature.
         Accepts a string, the actual result, and the expected value, which is
