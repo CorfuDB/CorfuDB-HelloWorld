@@ -9,6 +9,7 @@ import org.corfudb.runtime.stream.ILog;
 import org.corfudb.runtime.stream.IStream;
 import org.corfudb.runtime.stream.ITimestamp;
 import org.corfudb.runtime.view.IConfigurationMaster;
+import org.corfudb.runtime.view.ICorfuDBInstance;
 import org.corfudb.runtime.view.IStreamingSequencer;
 import org.corfudb.runtime.view.IWriteOnceAddressSpace;
 import org.corfudb.util.CorfuDBFactory;
@@ -54,152 +55,30 @@ public class CorfuHelloWorld {
         report("Creating CorfuDBRuntime...");
         CorfuDBRuntime cdr = cdbFactory.getRuntime();
 
-        /* Each CorfuDB instance consists of a configuration master, write once address
-         * space and sequencer. We can use the factory to get an instance.
+        /* The basic unit of CorfuDB is called an instance. It encapsulates the logging units,
+         * configuration master and sequencer. It provides the primary method of interacting with
+          * CorfuDB.
+          *
+          * To get an instance, call the .getLocalInstance() method on CorfuDBRuntime.
          */
-        report("Creating addressSpace, sequencer, and configMaster...");
-        IWriteOnceAddressSpace addressSpace = cdbFactory.getWriteOnceAddressSpace(cdr);
-        IStreamingSequencer sequencer = cdbFactory.getStreamingSequencer(cdr);
-        IConfigurationMaster configMaster = cdbFactory.getConfigurationMaster(cdr);
 
-        /* These classes are views over the CorfuDB instance. They automatically reconfigure
-         * if the underlying system changes, so you will not have to create a new
-         * sequencer for example, if the sequencer fails.
-         *
+        ICorfuDBInstance instance = cdr.getLocalInstance();
+
+        /*
          * The configuration master provides a resetAll command which resets the state
          * of the system. You should not use it in production, but it is very useful for
          * testing purposes.
          */
         report("resetting configuration...");
-        configMaster.resetAll();
+        instance.getConfigurationMaster().resetAll();
 
-        /* The sequencer provides incrementing tokens, while the write once address space
-         * allows us to write to addresses exactly once. We can read/write randomly
-         * to the address space.
-         */
-        report("starting first test...");
-        UUID streamId = UUID.randomUUID();
-        long token = sequencer.getNext(streamId);
-        addressSpace.write(token, "hello world");
-
-        /* If we were to write to the address space at the address given to token again here,
-         * we would get an overwrite exception. If we attempted to read an address in that
-         * address space before it was written, we would get an unwritten exception.
-         */
-        report("Read back the string ", addressSpace.readObject(token), "hello world");
-
-        /* Normally, we'll want something a little nicer to use than an address space. The log
-         * class does that, giving us a read, append and trim interface as described in the original
-         * CORFU paper.
-         */
-        configMaster.resetAll();
-        ILog log = cdbFactory.getLog(sequencer, addressSpace);
-        ITimestamp log_timestamp = log.append("hello world from a log");
-        report("Read back the string ", log.read(log_timestamp), "hello world from a log");
-
-        /* In addition to shared logs, we also get streams, which allow us to virtualize a CorfuDB
-         * instance, providing multiple log-like interfaces at a time. Unlike logs, however,
-         * streams are read forward from the beginning using a readNext() interface.
-         *
-         * We use UUIDs to uniquely identify streams. You can use the UUID.randomUUID() function
-         * to generate globally unique stream identifiers.
-         */
-        configMaster.resetAll();
-        IStream stream1 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
-        IStream stream2 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
-
-        stream1.append("hello world from stream 1");
-        stream2.append("hello world from stream 2");
-        stream1.append("hello world again from stream 1");
-        report("Read back the string ", stream1.readNextObject(), "hello world from stream 1");
-        report("Read back the string ", stream1.readNextObject(), "hello world again from stream 1");
-        report("Read back the string ", stream2.readNextObject(), "hello world from stream 2");
-
-        /* Stream entries have timestamps which we can use to compare ordering. Depending on the stream
-         * implementation, timestamps may be comparable across streams (you should expect that they will
-         * typically be not comparable).
-         */
-        configMaster.resetAll();
-        IStream stream3 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
-
-        stream3.append("hello world from stream 3");
-        stream3.append("hello world from stream 4");
-
-        IStreamEntry entry1 = stream3.readNextEntry();
-        IStreamEntry entry2 = stream3.readNextEntry();
-
-        ITimestamp ts1 = entry1.getTimestamp();
-        ITimestamp ts2 = entry2.getTimestamp();
-        report("Comparison of ts1 to ts2 returns ", ts1.compareTo(ts2), -1);
-
-        /* Now that we have used a stream, we can now build basic state machines. Fortunately, CorfuDB
-         * provides several classes to make this easier. Let's start by using the SimpleSMREngine
-         * to create a distributed counter.
-         *
-         * There is a one-to-one correspondence between SMR engines and streams. That is, each stream
-         * contains exactly one SMR engine, and each SMR engine is contained in exactly one stream.
-         *
-         * SimpleSMREngine takes the object type that it is supposed to wrap around as a type parameter.
-         * This type must provide a default, parameterless constructor by default.
-         */
-
-        configMaster.resetAll();
-        IStream stream4 = cdbFactory.getStream(UUID.randomUUID(), sequencer, addressSpace);
-        SimpleSMREngine<AtomicInteger> smr = new SimpleSMREngine<AtomicInteger>(stream4, AtomicInteger.class);
-
-        /* We can provide commands to the SMR engine as lambdas. This lambda is a BiConsumer, which takes the
-         * object the command is to act on (in this case, an AtomicInteger), and an options object.
-         *
-         * Don't forget to cast the lambda into a ISMREngineCommand<T>, otherwise the lambda won't be serializable
-         * and your object won't work!
-         *
-         * We define some basic operations for this counter, increment and decrement.
-         */
-
-        ISMREngineCommand<AtomicInteger> increment = (ISMREngineCommand<AtomicInteger>) (a, opt) -> a.getAndIncrement();
-
-        /* We can also define commands that return a value. Since this value will only be resolved on playback,
-         * we use a completable future, which can be accessed by calling getReturnResult() on the options object.
-         */
-        ISMREngineCommand<AtomicInteger> getAndIncrement =
-                (ISMREngineCommand<AtomicInteger>) (a, opt) -> {
-                    opt.getReturnResult().complete(a.getAndIncrement());
-                };
-
-        /* Now we can propose commands to the object, which will be played back by all clients playing back
-         * this object.
-         */
-        ITimestamp ts3 = smr.propose(increment, null);
-
-        /* To playback a proposal, we call sync to bring the object up to date.
-         * We can retrieve the object from the smr engine to get its value.
-         */
-        smr.sync(ts3);
-        report("Object is now at ", smr.getObject(), 1);
-
-        /* To use an accessor+mutator, we first create a completable future which will contain the result.
-         */
-        CompletableFuture<Object> previous = new CompletableFuture<Object>();
-        ITimestamp ts4 = smr.propose(getAndIncrement, previous);
-
-        /* We can access the result only when the future has completed. See the completable future API for details,
-         * but for synchronous inspection, we can join() on the future, which will block the thread until the
-         * SMR has synced.
-         */
-        smr.sync(ts4);
-        Object prev = previous.join();
-        Object now = smr.getObject();
-        report("Object was at ", prev, 1);
-        report("And object is now at ", now, 2);
 
         /* CorfuDB provides a collection of objects to work with so you don't have to implement your own.
          * For example, here is a simple map which implements the java.util.Map interface.
          */
-        configMaster.resetAll();
-        UUID mapid = UUID.randomUUID();
         CDBSimpleMap<Integer, Integer> map =
             (CDBSimpleMap<Integer, Integer>)
-                cdr.getLocalInstance().openObject(mapid, CDBSimpleMap.class);
+                cdr.getLocalInstance().openObject(UUID.randomUUID(), CDBSimpleMap.class);
         map.put(10, 100);
         report("Map key 10 contains value ", map.get(10), 100);
 
