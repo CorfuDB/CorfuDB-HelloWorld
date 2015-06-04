@@ -33,12 +33,14 @@ public class CorfuHelloWorld {
                     +"  --h --help                              show this screen\n"
                     +"  --version                               show version.\n";
 
+
+    @SuppressWarnings("unchecked")
     public static void main(String[] args) throws Exception {
 
         /*  This example uses docopt to parse command line arguments.
          *  For more information on how to use docopt, see http://docopt.org
          */
-        Map<String,Object> opts = new Docopt(doc).withVersion("git").parse(args);
+        Map<String, Object> opts = new Docopt(doc).withVersion("git").parse(args);
 
         /* The convenience class CorfuDBFactory allows us to create
          * CorfuDB class instances based on command line configuration parsed by docopt.
@@ -154,13 +156,15 @@ public class CorfuHelloWorld {
          * We define some basic operations for this counter, increment and decrement.
          */
 
-        ISMREngineCommand<AtomicInteger> increment = (ISMREngineCommand<AtomicInteger>) (a,opt) -> a.getAndIncrement();
+        ISMREngineCommand<AtomicInteger> increment = (ISMREngineCommand<AtomicInteger>) (a, opt) -> a.getAndIncrement();
 
         /* We can also define commands that return a value. Since this value will only be resolved on playback,
          * we use a completable future, which can be accessed by calling getReturnResult() on the options object.
          */
         ISMREngineCommand<AtomicInteger> getAndIncrement =
-                (ISMREngineCommand<AtomicInteger>) (a,opt) -> {opt.getReturnResult().complete(a.getAndIncrement());};
+                (ISMREngineCommand<AtomicInteger>) (a, opt) -> {
+                    opt.getReturnResult().complete(a.getAndIncrement());
+                };
 
         /* Now we can propose commands to the object, which will be played back by all clients playing back
          * this object.
@@ -192,21 +196,17 @@ public class CorfuHelloWorld {
          * For example, here is a simple map which implements the java.util.Map interface.
          */
         configMaster.resetAll();
-        UUID mapId = UUID.randomUUID();
-        IStream stream5 = cdbFactory.getStream(mapId, sequencer,addressSpace);
-        CDBSimpleMap<Integer, Integer> map = new CDBSimpleMap<Integer, Integer>(stream5);
+        UUID mapid = UUID.randomUUID();
+        CDBSimpleMap<Integer, Integer> map =
+            (CDBSimpleMap<Integer, Integer>)
+                cdr.getLocalInstance().openObject(mapid, CDBSimpleMap.class);
         map.put(10, 100);
         report("Map key 10 contains value ", map.get(10), 100);
 
         /* Of course, any client in the system can now access this map.
-         * We can create another "map" based on the same stream. Keep in mind
-         * streams and objects have a one-to-one mapping, so you'll need to create a new
-         * stream (with the same ID) to use this object:
          */
-        IStream stream6 = cdbFactory.getStream(mapId, sequencer,addressSpace);
-        CDBSimpleMap<Integer, Integer> map2 = new CDBSimpleMap<Integer, Integer>(stream6);
-        report("Map2 key 10 contains value ", map2.get(10), 100);
 
+        System.out.println("DONE!!!");
         System.exit(finalResult());
     }
 
