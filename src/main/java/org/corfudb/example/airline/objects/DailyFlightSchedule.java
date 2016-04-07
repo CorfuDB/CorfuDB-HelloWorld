@@ -15,7 +15,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @CorfuObject(objectType= ObjectType.SMR,
         constructorType= ConstructorType.PERSISTED,
-        stateType = DailyFlightSchedule.class
+        stateType = DailyFlightSchedule.class,
+        stateSource = StateSource.SELF
 )
 public class DailyFlightSchedule implements ICorfuSMRObject<DailyFlightSchedule> {
 
@@ -40,7 +41,7 @@ public class DailyFlightSchedule implements ICorfuSMRObject<DailyFlightSchedule>
     {
         // Check if this plane has any other flights today, and if they
         // intersect with the proposed time. If they do, abort and return false.
-        boolean intersect = getSMRObject().dailyFlights.values().stream()
+        boolean intersect = dailyFlights.values().stream()
                 .filter(x -> x.plane.equals(plane))
                 .anyMatch(x -> x.estimatedDeparture.isBefore(estimatedArrival) &&
                                 x.estimatedArrival.isAfter(estimatedDeparture));
@@ -48,7 +49,7 @@ public class DailyFlightSchedule implements ICorfuSMRObject<DailyFlightSchedule>
         if (intersect) return null;
 
         // Get the next available flight number, construct the object and return true.
-        int flightNumber = getSMRObject().nextFlightNumber.getAndIncrement();
+        int flightNumber = nextFlightNumber.getAndIncrement();
 
         Flight flight = getRuntime().getObjectsView().build()
                                 .setType(Flight.class)
@@ -58,7 +59,7 @@ public class DailyFlightSchedule implements ICorfuSMRObject<DailyFlightSchedule>
                                 .addOption(ObjectOpenOptions.CREATE_ONLY)
                                 .open();
 
-        getSMRObject().dailyFlights.put(flightNumber, flight);
+        dailyFlights.put(flightNumber, flight);
         return flight;
     }
 }
