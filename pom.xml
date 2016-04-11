@@ -23,13 +23,13 @@
         <dependency>
             <groupId>org.corfudb</groupId>
             <artifactId>corfu</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>LATEST</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.corfudb</groupId>
             <artifactId>corfu</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>LATEST</version>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
