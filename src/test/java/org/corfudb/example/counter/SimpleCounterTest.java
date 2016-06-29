@@ -3,6 +3,8 @@ package org.corfudb.example.counter;
 import org.corfudb.example.org.corfudb.example.counter.SimpleCounterExample;
 import org.corfudb.runtime.view.AbstractViewTest;
 import org.junit.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 /**
  * Created by dalia on 6/28/16.
@@ -37,7 +39,7 @@ public class SimpleCounterTest extends AbstractViewTest {
     {
         SimpleCounterExample simpleCounter =  new SimpleCounterExample(getDefaultRuntime());
         SimpleCounterExample.SharedCounter cnt = simpleCounter.getSharedCounter();
-        cnt.getCnt();
+        System.out.printf("counter value: " + cnt.getCnt());
     }
     @Test
     public void canSetAndGetSharedCounter()
@@ -46,6 +48,7 @@ public class SimpleCounterTest extends AbstractViewTest {
         SimpleCounterExample simpleCounter =  new SimpleCounterExample(getDefaultRuntime());
         SimpleCounterExample.SharedCounter cnt = simpleCounter.getSharedCounter();
         cnt.setCnt(44);
-        assert cnt.getCnt() == 44;
+        System.out.printf("counter value: " + cnt.getCnt());
+        assertThat(cnt.getCnt() == 44);
     }
 }

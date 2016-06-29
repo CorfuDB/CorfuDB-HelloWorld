@@ -32,7 +32,7 @@ public class SimpleCounterExample {
         this.runtime = runtime;
     }
 
-    public static class SharedCounter implements ICorfuSMRObject {
+    public static class SharedCounter /* implements ICorfuSMRObject */ {
         Integer cnt;
 
 
