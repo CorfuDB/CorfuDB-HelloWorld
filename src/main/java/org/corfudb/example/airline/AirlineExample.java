@@ -1,7 +1,6 @@
-package org.corfudb.example;
+package org.corfudb.example.airline;
 
 import com.google.common.collect.ImmutableMap;
-import org.corfudb.example.airline.AirlineManager;
 import org.corfudb.example.airline.objects.Aircraft;
 import org.corfudb.example.airline.objects.Airplane;
 import org.corfudb.example.airline.objects.DailyFlightSchedule;
@@ -11,10 +10,8 @@ import org.docopt.Docopt;
 import org.fusesource.jansi.Ansi;
 import org.fusesource.jansi.AnsiConsole;
 
-import java.lang.reflect.Array;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.fusesource.jansi.Ansi.ansi;
